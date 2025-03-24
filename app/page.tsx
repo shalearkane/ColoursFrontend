@@ -16,6 +16,7 @@ export default function CameraApp() {
         }
       } catch (err) {
         setError('Camera access denied');
+        console.log("Camera " + err)
       }
     };
 
@@ -48,6 +49,7 @@ export default function CameraApp() {
         setConcentration(data.concentration);
       } catch (err) {
         setError('Failed to calculate concentration');
+        console.log("Concentration " + err)
       }
     }, 'image/jpeg');
   };
