@@ -83,7 +83,7 @@ export default function CameraApp() {
           >
             <option value="acr">ACR</option>
             <option value="grayscale">GrayScale</option>
-            <option value="sha256">SHA-256</option>
+            {/* <option value="sha256">SHA-256</option> */}
           </select>
         </div>
 
