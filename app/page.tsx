@@ -1,6 +1,12 @@
 "use client"
 import { useState, useRef, useEffect } from 'react';
 
+const constraints = {
+  video: {
+    facingMode: "environment"
+  }
+};
+
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [concentration, setConcentration] = useState<string>('');
@@ -10,7 +16,7 @@ export default function CameraApp() {
   useEffect(() => {
     const initCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
