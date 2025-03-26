@@ -10,8 +10,9 @@ const constraints = {
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [concentration, setConcentration] = useState<string>('');
-  const [algorithm, setAlgorithm] = useState('acr')
+  const [algorithm, setAlgorithm] = useState('acr');
   const [error, setError] = useState<string>('');
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
   useEffect(() => {
     const initCamera = async () => {
@@ -22,14 +23,21 @@ export default function CameraApp() {
         }
       } catch (err) {
         setError('Camera access denied');
-        console.log("Camera " + err)
+        console.log("Camera " + err);
       }
     };
 
     initCamera();
+
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
   }, []);
 
-  const handleCapture = async () => {
+  const handleCapture = () => {
     const canvas = document.createElement('canvas');
     const video = videoRef.current;
 
@@ -37,27 +45,53 @@ export default function CameraApp() {
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
+    ctx.drawImage(video, 0, 0);
+    const dataURL = canvas.toDataURL('image/jpeg');
+    setCapturedImage(dataURL);
 
-      const formData = new FormData();
-      formData.append('photo.jpg', blob, 'photo.jpg');
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  };
 
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process/${algorithm}`, {
-          method: 'POST',
-          body: formData,
-        });
+  const handleSendToServer = async () => {
+    if (!capturedImage) return;
 
-        const data = await response.json();
-        setConcentration(data.concentration);
-      } catch (err) {
-        setError('Failed to calculate concentration');
-        console.log("Concentration " + err)
+    // Convert data URL to Blob
+    const blob = await fetch(capturedImage).then(res => res.blob());
+
+    const formData = new FormData();
+    formData.append('photo.jpg', blob, 'photo.jpg');
+
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process/${algorithm}`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+      setConcentration(data.concentration);
+    } catch (err) {
+      setError('Failed to calculate concentration');
+      console.log("Concentration " + err);
+    }
+  };
+
+  const handleRetake = async () => {
+    setCapturedImage(null);
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
       }
-    }, 'image/jpeg');
+    } catch (err) {
+      setError('Camera access denied');
+      console.log("Camera " + err);
+    }
   };
 
   return (
@@ -71,9 +105,15 @@ export default function CameraApp() {
           </div>
         )}
 
-        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4" style={{position: "relative"}}>
-          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-          <img src="crosshair2.svg" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", height: "40%", width: "40%" }}></img>
+        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4" style={{ position: "relative" }}>
+          {capturedImage ? (
+            <img src={capturedImage} className="w-full h-full object-cover" alt="Captured preview" />
+          ) : (
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          )}
+
+          <img src="crosshair2.svg" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", height: "40%", width: "40%" }} alt="Crosshair" />
+
         </div>
 
         <div className="mb-4">
@@ -84,16 +124,32 @@ export default function CameraApp() {
           >
             <option value="acr">ACR</option>
             <option value="grayscale">GrayScale</option>
-            {/* <option value="sha256">SHA-256</option> */}
           </select>
         </div>
 
-        <button
-          onClick={handleCapture}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-        >
-          Capture & Calculate
-        </button>
+        {!capturedImage ? (
+          <button
+            onClick={handleCapture}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          >
+            Capture
+          </button>
+        ) : (
+          <div className="flex gap-2">
+            <button
+              onClick={handleRetake}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Retake
+            </button>
+            <button
+              onClick={handleSendToServer}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Calculate
+            </button>
+          </div>
+        )}
 
         {concentration && (
           <div className="mt-4 p-4 bg-black-50 rounded">
@@ -101,6 +157,6 @@ export default function CameraApp() {
           </div>
         )}
       </div>
-    </div >
+    </div>
   );
 }
