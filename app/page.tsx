@@ -71,8 +71,9 @@ export default function CameraApp() {
           </div>
         )}
 
-        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4">
+        <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden mb-4" style={{position: "relative"}}>
           <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+          <img src="crosshair2.svg" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", pointerEvents: "none", height: "40%", width: "40%" }}></img>
         </div>
 
         <div className="mb-4">
@@ -100,6 +101,6 @@ export default function CameraApp() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }
