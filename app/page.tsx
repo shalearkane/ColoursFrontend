@@ -10,7 +10,7 @@ const constraints = {
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [concentration, setConcentration] = useState<string>('');
-  const [algorithm, setAlgorithm] = useState('acr');
+  const [algorithm, setAlgorithm] = useState('alb');
   const [error, setError] = useState<string>('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
 
@@ -67,7 +67,7 @@ export default function CameraApp() {
     formData.append('photo.jpg', blob, 'photo.jpg');
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process/${algorithm}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process?test=${algorithm}`, {
         method: 'POST',
         body: formData,
       });
@@ -122,8 +122,9 @@ export default function CameraApp() {
             onChange={(e) => setAlgorithm(e.target.value)}
             className="w-full text-black p-2 border rounded"
           >
-            <option value="acr">ACR</option>
-            <option value="grayscale">GrayScale</option>
+            <option value="alb">ALB</option>
+            <option value="alp">ALP</option>
+            <option value="creatinine">Creatinine</option>
           </select>
         </div>
 
