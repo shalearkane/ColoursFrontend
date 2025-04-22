@@ -41,6 +41,10 @@ export default function CameraApp() {
     const canvas = document.createElement('canvas');
     const video = videoRef.current;
 
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+
     if (!video) return;
 
     canvas.width = video.videoWidth;
@@ -51,10 +55,6 @@ export default function CameraApp() {
     ctx.drawImage(video, 0, 0);
     const dataURL = canvas.toDataURL('image/jpeg');
     setCapturedImage(dataURL);
-
-    if (videoRef.current) {
-      videoRef.current.pause();
-    }
   };
 
   const handleSendToServer = async () => {
@@ -66,22 +66,30 @@ export default function CameraApp() {
     const formData = new FormData();
     formData.append('photo.jpg', blob, 'photo.jpg');
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process?test=${algorithm}`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-      setConcentration(data.concentration);
-    } catch (err) {
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/process?test=${algorithm}`, {
+      method: 'POST',
+      body: formData,
+    }).then((response) => {
+      if (response.ok) {
+        response.json().then((data) => {
+          setConcentration(data.concentration);
+        });
+      } else {
+        response.json().then((data) => {
+          setError('Failed to calculate concentration as ' + data.error);
+        })
+      }
+    }).catch((error) => {
       setError('Failed to calculate concentration');
-      console.log("Concentration " + err);
-    }
+      console.log("Concentration " + error);
+    });
+
   };
 
   const handleRetake = async () => {
     setCapturedImage(null);
+    setConcentration('');
+    setError('');
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
