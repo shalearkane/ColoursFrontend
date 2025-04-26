@@ -152,7 +152,7 @@ export default function CameraApp() {
             <img src={capturedImage} className="w-full h-full object-cover block" alt="Captured Preview" />
           ) : (
             // Ensure video plays inline and is muted for autoplay compatibility
-            <video ref={videoRef} disablePictureInPicture autoPlay muted className="w-full h-full object-cover block" />
+            <video ref={videoRef} disablePictureInPicture autoPlay playsInline muted className="w-full h-full object-cover block" />
           )}
           {/* Crosshair only when video is showing */}
           {!capturedImage && (
