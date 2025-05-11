@@ -13,6 +13,7 @@ export default function CameraApp() {
   const [algorithm, setAlgorithm] = useState('alb');
   const [error, setError] = useState<string>('');
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [referenceWhiteImage, setRefWhiteImage] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(true);
 
   useEffect(() => {
@@ -57,17 +58,26 @@ export default function CameraApp() {
 
     ctx.drawImage(video, 0, 0);
     const dataURL = canvas.toDataURL('image/jpeg');
+
+    if (algorithm == "white")
+      setRefWhiteImage(dataURL);
+
     setCapturedImage(dataURL);
   };
+
 
   const handleSendToServer = async () => {
     if (!capturedImage) return;
 
-    // Convert data URL to Blob
-    const blob = await fetch(capturedImage).then(res => res.blob());
-
     const formData = new FormData();
-    formData.append('photo.jpg', blob, 'photo.jpg');
+
+    const photoBlob = await fetch(capturedImage).then(res => res.blob());
+    formData.append('photo.jpg', photoBlob, 'photo.jpg');
+
+    if (referenceWhiteImage !== null) {
+      const whiteBlob = await fetch(referenceWhiteImage).then(res => res.blob())
+      formData.append('white.jpg', whiteBlob, 'white.jpg')
+    }
 
     fetch(`${process.env.NEXT_PUBLIC_API_URL}/process?test=${algorithm}`, {
       method: 'POST',
@@ -136,7 +146,7 @@ export default function CameraApp() {
     <div className="min-h-screen bg-gray-100 p-4 flex items-center justify-center">
       <div className="max-w-md w-full mx-auto bg-white rounded-xl shadow-xl p-6"> {/* Increased padding, rounding, shadow */}
         <h1 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
-          Colours
+          Multi-Test
         </h1>
 
         {/* Error Message - Slightly refined */}
@@ -154,10 +164,7 @@ export default function CameraApp() {
             // Ensure video plays inline and is muted for autoplay compatibility
             <video ref={videoRef} disablePictureInPicture autoPlay playsInline muted className="w-full h-full object-cover block" />
           )}
-          {/* Crosshair only when video is showing */}
-          {!capturedImage && (
-            <img src="crosshair2.svg" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none h-2/5 w-2/5 opacity-60" alt="Crosshair" />
-          )}
+          <img src="crosshair2.svg" className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none h-2/5 w-2/5 opacity-60" alt="Crosshair" />
         </div>
 
         {/* Controls Area - Improved select styling */}
@@ -176,6 +183,7 @@ export default function CameraApp() {
             <option value="alb">ALB</option>
             <option value="alp">ALP</option>
             <option value="creatinine">Creatinine</option>
+            <option value="white">White Image</option>
           </select>
         </div>
 
@@ -195,12 +203,22 @@ export default function CameraApp() {
             >
               Retake
             </button>
-            <button
-              onClick={handleSendToServer}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Calculate
-            </button>
+            {
+              (algorithm !== "white") ? (<button
+                onClick={handleSendToServer}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Calculate
+              </button>) : (
+                <button
+                  onClick={handleRetake}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Set White Reference
+                </button>)
+
+            }
+
           </div>
         )}
 
