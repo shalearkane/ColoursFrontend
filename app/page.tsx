@@ -1,9 +1,12 @@
 "use client"
 import { useState, useRef, useEffect } from 'react';
 
-const constraints = {
+const videoConstraints = {
   video: {
     facingMode: "environment"
+    // You might want to add ideal width/height constraints here if needed
+    // width: { ideal: 1280 },
+    // height: { ideal: 720 }
   }
 };
 
@@ -14,179 +17,153 @@ interface PlacedCrosshair {
   testType: string;
 }
 
-const CROSSHAIR_SVG_PATH = "crosshair2.svg"; // Define once, reuse
+const CROSSHAIR_SVG_PATH = "/crosshair2.svg"; // Ensure this is in your /public folder
 
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const [concentration, setConcentration] = useState<string>('');
-  const [algorithm, setAlgorithm] = useState('alb');
-  const [error, setError] = useState<string>('');
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [showOverlay, setShowOverlay] = useState(true);
+  // const imageRef = useRef<HTMLImageElement>(null); // imageRef not strictly needed with current approach
+  const [currentTestType, setCurrentTestType] = useState('alb');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<string | null>(null);
+  const [showInfoOverlay, setShowInfoOverlay] = useState(true);
   const [placedCrosshairs, setPlacedCrosshairs] = useState<PlacedCrosshair[]>([]);
+  const [analysisResult, setAnalysisResult] = useState<string>('');
 
   useEffect(() => {
-    if (showOverlay) return;
-
-    const initCamera = async () => {
-      try {
-        if (videoRef.current?.srcObject) {
-          const stream = videoRef.current.srcObject as MediaStream;
-          stream.getTracks().forEach(track => track.stop());
-        }
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(err => console.error("Video play failed:", err));
-        }
-      } catch (err) {
-        setError('Camera access denied. Please check browser permissions.');
-        console.error("Camera initialization error:", err);
-      }
-    };
-
-    if (!capturedImage) {
-      initCamera();
-    }
-
-    return () => {
+    if (showInfoOverlay || capturedImageDataUrl) {
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
-    };
-  }, [showOverlay, capturedImage]);
-
-  const handleCapture = () => {
-    const canvas = document.createElement('canvas');
-    const video = videoRef.current;
-
-    if (!video || video.readyState < video.HAVE_METADATA) {
-      setError("Video not ready yet.");
       return;
     }
 
-    if (videoRef.current) {
-      videoRef.current.pause();
+    let stream: MediaStream | null = null;
+    const initCamera = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(videoConstraints);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+      } catch (err) {
+        console.error("Camera initialization error:", err);
+        setErrorMessage('Camera access denied or unavailable. Please check permissions.');
+      }
+    };
+
+    initCamera();
+
+    return () => {
+      stream?.getTracks().forEach(track => track.stop());
+    };
+  }, [showInfoOverlay, capturedImageDataUrl]);
+
+  const handleCaptureImage = () => {
+    const video = videoRef.current;
+    if (!video || video.readyState < video.HAVE_METADATA || video.videoWidth === 0) {
+      setErrorMessage("Video stream not ready. Please wait or try again.");
+      return;
     }
 
-    canvas.width = video.videoWidth;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth; // Use actual video resolution for capture
     canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
+
     if (!ctx) {
-      setError("Could not get canvas context.");
+      setErrorMessage("Could not prepare image for capture (canvas error).");
       return;
     }
 
     ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-    const dataURL = canvas.toDataURL('image/jpeg');
-
-    setCapturedImage(dataURL);
-    setPlacedCrosshairs([]); // Reset crosshairs for a new image
-    setError('');
-    setConcentration('');
+    const dataURL = canvas.toDataURL('image/jpeg', 0.9); // Quality 0.9
+    setCapturedImageDataUrl(dataURL);
+    setPlacedCrosshairs([]);
+    setErrorMessage('');
+    setAnalysisResult('');
   };
 
-  const handleImageClick = (event: React.MouseEvent<HTMLImageElement>) => {
-    if (!capturedImage) return;
+  const handleImageAreaClick = (event: React.MouseEvent<HTMLDivElement>) => { // Changed to HTMLDivElement
+    if (!capturedImageDataUrl) return;
 
-    const imageElement = event.currentTarget;
-    const rect = imageElement.getBoundingClientRect();
-    // Calculate click coordinates relative to the image's displayed size
-    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / imageElement.offsetWidth));
-    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / imageElement.offsetHeight));
+    const targetElement = event.currentTarget; // This is the div wrapping the image
+    const rect = targetElement.getBoundingClientRect();
 
+    const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / targetElement.offsetWidth));
+    const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / targetElement.offsetHeight));
 
     setPlacedCrosshairs(prev => [
       ...prev,
-      { id: Date.now().toString(), x, y, testType: algorithm }
+      { id: `crosshair-${Date.now()}${Math.random().toString(36).substr(2, 5)}`, x, y, testType: currentTestType }
     ]);
   };
 
-  const handleSendToServer = async () => {
-    if (!capturedImage) {
-      setError("No image captured to send.");
+  const handleSendDataToServer = async () => {
+    if (!capturedImageDataUrl) {
+      setErrorMessage("No image captured to send.");
       return;
     }
     if (placedCrosshairs.length === 0) {
-      setError("Please place at least one crosshair/point on the image.");
+      setErrorMessage("Please place at least one analysis point on the image.");
       return;
     }
 
+    setErrorMessage('');
+    setAnalysisResult('Analyzing...');
+
     const formData = new FormData();
+    try {
+      const photoBlob = await fetch(capturedImageDataUrl).then(res => res.blob());
+      formData.append('photo.jpg', photoBlob, 'photo.jpg');
 
-    const photoBlob = await fetch(capturedImage).then(res => res.blob());
-    formData.append('photo.jpg', photoBlob, 'photo.jpg');
+      const crosshairsData = placedCrosshairs.map(({ x, y, testType }) => ({ x, y, testType }));
+      formData.append('crosshairs.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'crosshairs.json');
 
-    const crosshairsData = placedCrosshairs.map(p => ({ x: p.x, y: p.y, testType: p.testType }));
-    const crosshairsJson = JSON.stringify(crosshairsData);
-    formData.append('crosshairs.json', new Blob([crosshairsJson], { type: 'application/json' }), 'crosshairs.json');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, {
+        method: 'POST',
+        body: formData,
+      });
+      const responseData = await response.json();
 
-    // The `test=${algorithm}` query parameter might be redundant if all test info is in crosshairs.json
-    // Or, it could indicate a primary test type if your server needs it.
-    // For simplicity, let's assume the server primarily uses crosshairs.json
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, { // Removed ?test=${algorithm} assuming server uses JSON
-      method: 'POST',
-      body: formData,
-    }).then((response) => {
       if (response.ok) {
-        response.json().then((data) => {
-          setConcentration(data.concentration || 'Processing complete. No concentration value returned.');
-        }).catch(parseErr => {
-          setError('Successfully sent, but failed to parse server response.');
-          console.error("Response parsing error:", parseErr);
-        });
+        setAnalysisResult(responseData.concentration || 'Analysis complete. No specific result value.');
       } else {
-        response.json().then((data) => {
-          setError(`Server error: ${data.error || 'Unknown error from server'}`);
-        }).catch(parseErr => {
-          setError('Failed to send to server and could not parse error response.');
-          console.error("Error response parsing error:", parseErr);
-        });
+        setErrorMessage(`Server error: ${responseData.error || response.statusText || 'Unknown error'}`);
+        setAnalysisResult('');
       }
-    }).catch((error) => {
-      setError('Network error or server unavailable. Please try again.');
-      console.error("Send to server error:", error);
-    });
+    } catch (error) {
+      console.error("Client-side error during send or parsing response:", error);
+      setErrorMessage('Failed to send data or interpret server response. Check network or console.');
+      setAnalysisResult('');
+    }
   };
 
-  const handleRetake = async () => {
-    setCapturedImage(null);
+  const handleRetakeImage = () => {
+    setCapturedImageDataUrl(null);
     setPlacedCrosshairs([]);
-    setConcentration('');
-    setError('');
-    // useEffect will re-initialize camera
+    setAnalysisResult('');
+    setErrorMessage('');
   };
 
-  const clearLastPoint = () => {
-    setPlacedCrosshairs(prev => prev.slice(0, -1));
-  };
+  const handleClearLastPoint = () => setPlacedCrosshairs(prev => prev.slice(0, -1));
+  const handleClearAllPoints = () => setPlacedCrosshairs([]);
 
-  const clearAllPoints = () => {
-    setPlacedCrosshairs([]);
-  };
-
-
-  if (showOverlay) {
+  if (showInfoOverlay) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-gray-700 via-gray-900 to-black bg-opacity-95 flex items-center justify-center z-50 p-4 transition-opacity duration-300 ease-in-out">
-        <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-md w-full transform transition-all duration-300 ease-in-out scale-100">
-          <div className="mb-5 text-5xl text-blue-600">
-            {/* Optional: Icon or Logo */}
-          </div>
-          <h2 className="text-2xl font-semibold mb-3 text-gray-800">
-            Ready to Analyze?
-          </h2>
-          <p className="text-sm text-gray-600 mb-8 px-4">
-            Please allow camera access. Position the test strip within the reference crosshair on screen.
-            After capturing, you will place points for each test area.
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black flex items-center justify-center z-50 p-6">
+        <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-lg w-full">
+          <h2 className="text-3xl font-bold mb-4 text-gray-800">Test Analyzer</h2>
+          <p className="text-gray-600 mb-8">
+            Allow camera access. Align the test strip using the on-screen guide.
+            After capturing, tap on the image to place points for each test area.
           </p>
           <button
-            onClick={() => setShowOverlay(false)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg w-full transition duration-200 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            onClick={() => setShowInfoOverlay(false)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-150 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           >
-            Get Started
+            Start Analysis
           </button>
         </div>
       </div>
@@ -195,44 +172,53 @@ export default function CameraApp() {
 
   return (
     <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center justify-center">
-      <div className="max-w-lg w-full mx-auto bg-white rounded-xl shadow-xl p-6">
-        <h1 className="text-2xl font-semibold mb-6 text-gray-800 text-center">
-          Multi-Test Analyzer
+      <div className="max-w-2xl w-full mx-auto bg-white rounded-xl shadow-2xl p-6">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 text-center">
+          Image Analysis
         </h1>
 
-        {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md mb-4 text-sm shadow-sm" role="alert">
-            <p><span className="font-bold">Error:</span> {error}</p>
+        {errorMessage && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md mb-4 shadow" role="alert">
+            <p><span className="font-semibold">Error:</span> {errorMessage}</p>
           </div>
         )}
 
-        <div className="aspect-[4/3] bg-gray-200 rounded-lg overflow-hidden mb-5 relative border border-gray-300 shadow-inner">
-          {!capturedImage ? (
+        <div className="aspect-[4/3] bg-gray-300 rounded-lg overflow-hidden mb-6 relative border-2 border-gray-200 shadow-inner">
+          {!capturedImageDataUrl ? (
             <>
-              <video ref={videoRef} disablePictureInPicture autoPlay playsInline muted className="w-full h-full object-cover block" />
-              {/* Reference crosshair for aiming during live preview */}
-              <img src={CROSSHAIR_SVG_PATH} className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none h-1/4 w-1/4 opacity-50" alt="Reference Crosshair" />
+              <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
+              <img
+                src={CROSSHAIR_SVG_PATH}
+                className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50"
+                style={{
+                  maxHeight: '25%', // 1/5th of container height
+                  maxWidth: '25%',  // 1/5th of container width
+                  objectFit: 'contain', // Ensures it fits and maintains aspect ratio
+                }}
+                alt="Aiming Guide"
+              />
             </>
           ) : (
-            <div className="w-full h-full relative">
+            <div className="w-full h-full relative cursor-crosshair" onClick={handleImageAreaClick}>
               <img
-                ref={imageRef}
-                src={capturedImage}
-                className="w-full h-full object-cover block"
-                alt="Captured Preview"
-                onClick={handleImageClick}
-                style={{ cursor: 'crosshair' }}
+                src={capturedImageDataUrl}
+                className="w-full h-full object-cover" // object-cover ensures the image fills the space, cropping if necessary
+                alt="Captured Test Strip"
               />
-              {/* Placed crosshairs by user */}
               {placedCrosshairs.map(ch => (
                 <img
                   key={ch.id}
                   src={CROSSHAIR_SVG_PATH}
-                  alt={`Crosshair for ${ch.testType}`}
-                  className="absolute pointer-events-none opacity-75 h-10 w-10" // Example fixed size
+                  alt={`Point for ${ch.testType}`}
+                  className="absolute pointer-events-none opacity-80"
                   style={{
-                    left: `calc(${ch.x * 100}% - 20px)`, // Adjust offset to be half of width (20px for w-10 which is 2.5rem ~ 40px)
-                    top: `calc(${ch.y * 100}% - 20px)`,  // Adjust offset to be half of height
+                    maxHeight: '25%', // Consistent sizing with the reference
+                    maxWidth: '25%',
+                    objectFit: 'contain',
+                    left: `${ch.x * 100}%`,
+                    top: `${ch.y * 100}%`,
+                    transform: 'translate(-50%, -50%)',
+                    filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))' // Slightly stronger shadow
                   }}
                 />
               ))}
@@ -240,77 +226,74 @@ export default function CameraApp() {
           )}
         </div>
 
-        {/* Controls visible only when an image is captured, for placing points */}
-        {capturedImage && (
-          <div className="mb-5">
-            <label htmlFor="algorithm-select" className="block text-sm font-medium text-gray-700 mb-1">
-              Select Test Type for Next Point:
-            </label>
-            <select
-              id="algorithm-select"
-              value={algorithm}
-              onChange={(e) => setAlgorithm(e.target.value)}
-              className="w-full text-black p-2.5 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition duration-150 ease-in-out"
-            >
-              <option value="alb">ALB</option>
-              <option value="alp">ALP</option>
-              <option value="creatinine">Creatinine</option>
-              <option value="white">White Reference Point</option> {/* "white" is now a regular testType for a point */}
-            </select>
-          </div>
-        )}
-
-
-        {!capturedImage ? (
+        {!capturedImageDataUrl ? (
           <button
-            onClick={handleCapture}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+            onClick={handleCaptureImage}
+            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 text-lg"
           >
             Capture Image
           </button>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-3">
-              <button
-                onClick={clearLastPoint}
-                disabled={placedCrosshairs.length === 0}
-                className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-50"
+            <div className="mb-4">
+              <label htmlFor="test-type-select" className="block text-sm font-medium text-gray-700 mb-1">
+                Select Test Type for Next Point:
+              </label>
+              <select
+                id="test-type-select"
+                value={currentTestType}
+                onChange={(e) => setCurrentTestType(e.target.value)}
+                className="w-full text-black p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
               >
-                Clear Last Point ({placedCrosshairs.length})
+                <option value="alb">ALB</option>
+                <option value="alp">ALP</option>
+                <option value="creatinine">Creatinine</option>
+                <option value="white">White Reference Point</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button
+                onClick={handleClearLastPoint}
+                disabled={placedCrosshairs.length === 0}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Clear Last ({placedCrosshairs.length})
               </button>
               <button
-                onClick={clearAllPoints}
+                onClick={handleClearAllPoints}
                 disabled={placedCrosshairs.length === 0}
-                className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-2 disabled:opacity-50"
+                className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Clear All Points
+                Clear All
               </button>
             </div>
+
             <div className="flex flex-col sm:flex-row gap-3">
               <button
-                onClick={handleRetake}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                onClick={handleRetakeImage}
+                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow transition"
               >
                 Retake Image
               </button>
               <button
-                onClick={handleSendToServer}
+                onClick={handleSendDataToServer}
                 disabled={placedCrosshairs.length === 0}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition duration-200 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Calculate ({placedCrosshairs.length} points)
+                Analyze {placedCrosshairs.length > 0 ? `(${placedCrosshairs.length} Points)` : ''}
               </button>
             </div>
           </>
         )}
 
-        {concentration && (
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">
-              Server Response:
+        {analysisResult && (
+          <div className={`mt-6 p-4 rounded-lg border shadow-sm ${analysisResult === 'Analyzing...' ? 'bg-yellow-50 border-yellow-300 text-yellow-800' : 'bg-green-50 border-green-300 text-green-800'}`}>
+            <p className="text-xs font-medium uppercase tracking-wider mb-1">
+              {analysisResult === 'Analyzing...' ? 'Status' : 'Analysis Result:'}
             </p>
-            <p className="text-base font-mono text-gray-900 break-all">
-              {concentration}
+            <p className="text-base font-mono break-words">
+              {analysisResult}
             </p>
           </div>
         )}
