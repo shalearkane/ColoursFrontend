@@ -22,7 +22,7 @@ const CROSSHAIR_SVG_PATH = "/crosshair2.svg"; // Ensure this is in your /public 
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   // const imageRef = useRef<HTMLImageElement>(null); // imageRef not strictly needed with current approach
-  const [currentTestType, setCurrentTestType] = useState('alb');
+  const [currentTestType, setCurrentTestType] = useState('ALB');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<string | null>(null);
   const [showInfoOverlay, setShowInfoOverlay] = useState(true);
@@ -116,10 +116,10 @@ export default function CameraApp() {
     const formData = new FormData();
     try {
       const photoBlob = await fetch(capturedImageDataUrl).then(res => res.blob());
-      formData.append('photo.jpg', photoBlob, 'photo.jpg');
+      formData.append('photo.jpeg', photoBlob, 'photo.jpeg');
 
       const crosshairsData = placedCrosshairs.map(({ x, y, testType }) => ({ x, y, testType }));
-      formData.append('crosshairs.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'crosshairs.json');
+      formData.append('points.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'points.json');
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, {
         method: 'POST',
@@ -191,8 +191,8 @@ export default function CameraApp() {
                 src={CROSSHAIR_SVG_PATH}
                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50"
                 style={{
-                  maxHeight: '25%', // 1/5th of container height
-                  maxWidth: '25%',  // 1/5th of container width
+                  maxHeight: '25%', // 1/4th of container height
+                  maxWidth: '25%',  // 1/4th of container width
                   objectFit: 'contain', // Ensures it fits and maintains aspect ratio
                 }}
                 alt="Aiming Guide"
@@ -245,10 +245,10 @@ export default function CameraApp() {
                 onChange={(e) => setCurrentTestType(e.target.value)}
                 className="w-full text-black p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
               >
-                <option value="alb">ALB</option>
-                <option value="alp">ALP</option>
-                <option value="creatinine">Creatinine</option>
-                <option value="white">White Reference Point</option>
+                <option value="ALB">ALB</option>
+                <option value="ALP">ALP</option>
+                <option value="CREATININE">Creatinine</option>
+                <option value="WHITE">White Reference Point</option>
               </select>
             </div>
 
