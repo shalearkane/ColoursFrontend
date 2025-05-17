@@ -191,8 +191,8 @@ export default function CameraApp() {
                 src={CROSSHAIR_SVG_PATH}
                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50"
                 style={{
-                  maxHeight: '25%', // 1/4th of container height
-                  maxWidth: '25%',  // 1/4th of container width
+                  maxHeight: '33%', // 1/4th of container height
+                  maxWidth: '33%',  // 1/4th of container width
                   objectFit: 'contain', // Ensures it fits and maintains aspect ratio
                 }}
                 alt="Aiming Guide"
@@ -212,8 +212,8 @@ export default function CameraApp() {
                   alt={`Point for ${ch.testType}`}
                   className="absolute pointer-events-none opacity-80"
                   style={{
-                    maxHeight: '25%', // Consistent sizing with the reference
-                    maxWidth: '25%',
+                    maxHeight: '33%', // Consistent sizing with the reference
+                    maxWidth: '33%',
                     objectFit: 'contain',
                     left: `${ch.x * 100}%`,
                     top: `${ch.y * 100}%`,
