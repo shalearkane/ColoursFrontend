@@ -6,7 +6,10 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
+    "lint:check": "eslint .",
+    "lint:fix": "eslint --fix ."
   },
   "dependencies": {
     "react": "^19.0.0",
@@ -22,6 +25,8 @@
     "tailwindcss": "^4",
     "eslint": "^9",
     "eslint-config-next": "15.2.3",
-    "@eslint/eslintrc": "^3"
+    "@eslint/eslintrc": "^3",
+    "prettier": "^3.5.3",
+    "prettier-plugin-organize-imports": "^4.1.0"
   }
 }
