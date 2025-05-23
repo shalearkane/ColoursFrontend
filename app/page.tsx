@@ -4,9 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 const videoConstraints = {
   video: {
     facingMode: 'environment'
-    // You might want to add ideal width/height constraints here if needed
-    // width: { ideal: 1280 },
-    // height: { ideal: 720 }
   }
 };
 
@@ -50,6 +47,68 @@ const TestTypeColorValues: Record<TestType, { bg: string; text: string }> = {
   CREATININE: { bg: 'bg-violet-600', text: 'text-white' }
 };
 
+interface ConcentrationResponse {
+  pointIndex: number;
+  test_type: TestType;
+  concentration: number;
+  remarks: 'low' | 'normal' | 'high';
+}
+
+interface ResultsModalProps {
+  results: ConcentrationResponse[];
+  onClose: () => void;
+}
+
+const ResultsModal: React.FC<ResultsModalProps> = ({ results, onClose }) => {
+  return (
+    <div className={`fixed inset-0 ${M3Colors.surfaceContainer} bg-opacity-75 flex items-center justify-center z-50 p-4`}>
+      <div className={`${M3Colors.surface} rounded-2xl ${M3Colors.shadow} max-w-xl w-full flex flex-col ${M3Colors.onSurface} overflow-hidden`}>
+        <div className={`p-6 border-b ${M3Colors.outline}`}>
+          <h2 className={`text-2xl font-semibold ${M3Colors.onSurface}`}>Analysis Results</h2>
+        </div>
+        <div className="p-6 max-h-[60vh] overflow-y-auto">
+          <table className="w-full min-w-full divide-y divide-gray-200">
+            <thead className={`${M3Colors.secondaryContainer}`}>
+              <tr>
+                <th scope="col" className={`px-4 py-3.5 text-left text-sm font-semibold ${M3Colors.onSecondaryContainer}`}>
+                  Point #
+                </th>
+                <th scope="col" className={`px-4 py-3.5 text-left text-sm font-semibold ${M3Colors.onSecondaryContainer}`}>
+                  Test Type
+                </th>
+                <th scope="col" className={`px-4 py-3.5 text-left text-sm font-semibold ${M3Colors.onSecondaryContainer}`}>
+                  Concentration
+                </th>
+                <th scope="col" className={`px-4 py-3.5 text-left text-sm font-semibold ${M3Colors.onSecondaryContainer}`}>
+                  Remark
+                </th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${M3Colors.outline} ${M3Colors.surface}`}>
+              {results.map((result) => (
+                <tr key={result.pointIndex}>
+                  <td className={`whitespace-nowrap px-4 py-3 text-sm ${M3Colors.onSurfaceVariant}`}>{result.pointIndex}</td>
+                  <td className={`whitespace-nowrap px-4 py-3 text-sm ${M3Colors.onSurfaceVariant}`}>{result.test_type}</td>
+                  <td className={`whitespace-nowrap px-4 py-3 text-sm ${M3Colors.onSurfaceVariant}`}>{result.concentration.toFixed(2)}</td>
+                  <td className={`whitespace-nowrap px-4 py-3 text-sm ${M3Colors.onSurfaceVariant}`}>{result.remarks}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className={`p-6 border-t ${M3Colors.outline} flex justify-end`}>
+          <button
+            onClick={onClose}
+            className={`${M3Colors.primary} ${M3Colors.onPrimary} font-medium py-2.5 px-6 rounded-full text-sm transition-transform duration-150 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300`}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTestType, setCurrentTestType] = useState<TestType>('ALB');
@@ -57,7 +116,10 @@ export default function CameraApp() {
   const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<string | null>(null);
   const [showInfoOverlay, setShowInfoOverlay] = useState(true);
   const [placedCrosshairs, setPlacedCrosshairs] = useState<PlacedCrosshair[]>([]);
-  const [analysisResult, setAnalysisResult] = useState<string>('');
+
+  const [analysisResult, setAnalysisResult] = useState<ConcentrationResponse[] | null>(null);
+  const [isLoadingAnalysis, setIsLoadingAnalysis] = useState<boolean>(false);
+  const [showResultsModal, setShowResultsModal] = useState<boolean>(false);
 
   useEffect(() => {
     if (showInfoOverlay || capturedImageDataUrl) {
@@ -109,11 +171,12 @@ export default function CameraApp() {
     }
 
     ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-    const dataURL = canvas.toDataURL('image/jpeg', 0.9); // Quality 0.9
+    const dataURL = canvas.toDataURL('image/jpeg', 0.9);
     setCapturedImageDataUrl(dataURL);
     setPlacedCrosshairs([]);
     setErrorMessage('');
-    setAnalysisResult('');
+    setAnalysisResult(null);
+    setShowResultsModal(false);
   };
 
   const handleImageAreaClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -157,45 +220,41 @@ export default function CameraApp() {
     }
 
     setErrorMessage('');
-    setAnalysisResult('Analyzing...');
+    setIsLoadingAnalysis(true);
+    setAnalysisResult(null);
+    setShowResultsModal(false);
 
     const formData = new FormData();
     try {
       const photoBlob = await fetch(capturedImageDataUrl).then((res) => res.blob());
       formData.append('photo.jpeg', photoBlob, 'photo.jpeg');
-
-      const crosshairsData = placedCrosshairs.map(({ x, y, testType, pointIndex }) => ({
-        x,
-        y,
-        testType,
-        pointIndex
-      }));
+      const crosshairsData = placedCrosshairs.map(({ x, y, testType, pointIndex }) => ({ x, y, testType, pointIndex }));
       formData.append('points.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'points.json');
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, {
-        method: 'POST',
-        body: formData
-      });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, { method: 'POST', body: formData });
       const responseData = await response.json();
+      setIsLoadingAnalysis(false);
 
       if (response.ok) {
-        setAnalysisResult(responseData.concentration || 'Analysis complete. No specific result value.');
+        setAnalysisResult(responseData.results as ConcentrationResponse[]);
+        setShowResultsModal(true);
       } else {
         setErrorMessage(`Server error: ${responseData.error || response.statusText || 'Unknown error'}`);
-        setAnalysisResult('');
       }
     } catch (error) {
       console.error('Client-side error during send or parsing response:', error);
       setErrorMessage('Failed to send data or interpret server response. Check network or console.');
-      setAnalysisResult('');
+      setIsLoadingAnalysis(false);
     }
   };
 
   const handleRetakeImage = () => {
     setCapturedImageDataUrl(null);
     setPlacedCrosshairs([]);
-    setAnalysisResult('');
+    setAnalysisResult(null);
+    setShowResultsModal(false);
     setErrorMessage('');
+    setIsLoadingAnalysis(false);
   };
 
   const handleClearLastPoint = () => setPlacedCrosshairs((prev) => prev.slice(0, -1));
@@ -232,7 +291,7 @@ export default function CameraApp() {
         </div>
         {errorMessage && (
           <div
-            className={`${M3Colors.errorContainer} border-l-4 border-red-500 ${M3Colors.onErrorContainer} px-4 py-3 rounded-lg mb-4 ${M3Colors.shadowMd}`} // Softer shadow
+            className={`${M3Colors.errorContainer} border-l-4 border-red-500 ${M3Colors.onErrorContainer} px-4 py-3 rounded-lg mb-4 ${M3Colors.shadowMd}`}
             role="alert"
           >
             <p className="font-medium">Error:</p>
@@ -276,18 +335,11 @@ export default function CameraApp() {
                     src={CROSSHAIR_SVG_PATH}
                     alt={`Point for ${ch.testType}`}
                     className="pointer-events-none opacity-60"
-                    style={{
-                      height: '100%',
-                      width: '100%',
-                      objectFit: 'contain',
-                      filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.3))`
-                    }}
+                    style={{ height: '100%', width: '100%', objectFit: 'contain', filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.3))` }}
                   />
                   <div
                     className={`absolute font-bold text-sm ${TestTypeColorValues[ch.testType].text} ${TestTypeColorValues[ch.testType].bg} rounded-full px-1`}
-                    style={{
-                      pointerEvents: 'none'
-                    }}
+                    style={{ pointerEvents: 'none' }}
                   >
                     {ch.pointIndex}
                   </div>
@@ -351,30 +403,24 @@ export default function CameraApp() {
               </button>
               <button // Primary action: Filled button style
                 onClick={handleSendDataToServer}
-                disabled={placedCrosshairs.length === 0 || !hasWhitePoint}
+                disabled={placedCrosshairs.length === 0 || !hasWhitePoint || isLoadingAnalysis}
                 className={`flex-1 ${M3Colors.primary} ${M3Colors.onPrimary} font-semibold py-3 px-4 rounded-full ${M3Colors.shadowMd} transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400`}
               >
-                Analyze {placedCrosshairs.length > 0 ? `(${placedCrosshairs.length} Points)` : ''}
+                {isLoadingAnalysis ? 'Analyzing...' : `Analyze ${placedCrosshairs.length > 0 ? `(${placedCrosshairs.length} Points)` : ''}`}
               </button>
             </div>
           </>
         )}
-
-        {analysisResult && (
-          <div
-            className={`mt-6 p-4 rounded-xl border ${M3Colors.shadowMd} ${
-              analysisResult === 'Analyzing...'
-                ? `${M3Colors.secondaryContainer} border-yellow-400 ${M3Colors.onSecondaryContainer}`
-                : `bg-green-100 border-green-400 text-green-800`
-            }`}
-          >
-            <p className="text-xs font-medium uppercase tracking-wider mb-1">
-              {analysisResult === 'Analyzing...' ? 'Status' : 'Analysis Result:'}
-            </p>
-            <p className="text-lg font-mono break-words">{analysisResult}</p>
-          </div>
-        )}
+        {isLoadingAnalysis &&
+          capturedImageDataUrl && ( // Show specific loading message when "Analyze" button was pressed
+            <div
+              className={`mt-6 p-4 rounded-xl ${M3Colors.secondaryContainer} ${M3Colors.onSecondaryContainer} ${M3Colors.shadowMd} text-center`}
+            >
+              <p className="text-lg font-mono animate-pulse">Analyzing, please wait...</p>
+            </div>
+          )}
       </div>
+      {showResultsModal && analysisResult && <ResultsModal results={analysisResult} onClose={() => setShowResultsModal(false)} />}
     </div>
   );
 }
