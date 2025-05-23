@@ -1,28 +1,37 @@
-"use client"
-import { useState, useRef, useEffect } from 'react';
+'use client';
+import { useEffect, useRef, useState } from 'react';
 
 const videoConstraints = {
   video: {
-    facingMode: "environment"
+    facingMode: 'environment'
     // You might want to add ideal width/height constraints here if needed
     // width: { ideal: 1280 },
     // height: { ideal: 720 }
   }
 };
 
+type TestType = 'CREATININE' | 'ALB' | 'ALP' | 'WHITE';
+
 interface PlacedCrosshair {
   id: string;
   x: number; // Relative X (0 to 1)
   y: number; // Relative Y (0 to 1)
-  testType: string;
+  testType: TestType;
+  pointIndex: number; // 1-based index
 }
 
-const CROSSHAIR_SVG_PATH = "/crosshair2.svg"; // Ensure this is in your /public folder
+const CROSSHAIR_SVG_PATH = '/crosshair2.svg'; // Ensure this is in your /public folder
+
+const TestTypeColorValues: Record<TestType, string> = {
+  WHITE: '#4B5563', // Tailwind gray-700
+  ALB: '#15803D', // Tailwind green-700
+  ALP: '#1D4ED8', // Tailwind blue-700
+  CREATININE: '#6D28D9' // Tailwind purple-700
+};
 
 export default function CameraApp() {
   const videoRef = useRef<HTMLVideoElement>(null);
-  // const imageRef = useRef<HTMLImageElement>(null); // imageRef not strictly needed with current approach
-  const [currentTestType, setCurrentTestType] = useState('ALB');
+  const [currentTestType, setCurrentTestType] = useState<TestType>('ALB');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [capturedImageDataUrl, setCapturedImageDataUrl] = useState<string | null>(null);
   const [showInfoOverlay, setShowInfoOverlay] = useState(true);
@@ -31,9 +40,10 @@ export default function CameraApp() {
 
   useEffect(() => {
     if (showInfoOverlay || capturedImageDataUrl) {
+      // Stop camera if overlay is shown or if we already have a captured image
       if (videoRef.current?.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
         videoRef.current.srcObject = null;
       }
       return;
@@ -48,7 +58,7 @@ export default function CameraApp() {
           await videoRef.current.play();
         }
       } catch (err) {
-        console.error("Camera initialization error:", err);
+        console.error('Camera initialization error:', err);
         setErrorMessage('Camera access denied or unavailable. Please check permissions.');
       }
     };
@@ -56,14 +66,14 @@ export default function CameraApp() {
     initCamera();
 
     return () => {
-      stream?.getTracks().forEach(track => track.stop());
+      stream?.getTracks().forEach((track) => track.stop());
     };
   }, [showInfoOverlay, capturedImageDataUrl]);
 
   const handleCaptureImage = () => {
     const video = videoRef.current;
     if (!video || video.readyState < video.HAVE_METADATA || video.videoWidth === 0) {
-      setErrorMessage("Video stream not ready. Please wait or try again.");
+      setErrorMessage('Video stream not ready. Please wait or try again.');
       return;
     }
 
@@ -73,7 +83,7 @@ export default function CameraApp() {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-      setErrorMessage("Could not prepare image for capture (canvas error).");
+      setErrorMessage('Could not prepare image for capture (canvas error).');
       return;
     }
 
@@ -85,7 +95,7 @@ export default function CameraApp() {
     setAnalysisResult('');
   };
 
-  const handleImageAreaClick = (event: React.MouseEvent<HTMLDivElement>) => { // Changed to HTMLDivElement
+  const handleImageAreaClick = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!capturedImageDataUrl) return;
 
     const targetElement = event.currentTarget; // This is the div wrapping the image
@@ -94,19 +104,34 @@ export default function CameraApp() {
     const x = Math.max(0, Math.min(1, (event.clientX - rect.left) / targetElement.offsetWidth));
     const y = Math.max(0, Math.min(1, (event.clientY - rect.top) / targetElement.offsetHeight));
 
-    setPlacedCrosshairs(prev => [
-      ...prev,
-      { id: `crosshair-${Date.now()}${Math.random().toString(36).substr(2, 5)}`, x, y, testType: currentTestType }
-    ]);
+    setPlacedCrosshairs((prev) => {
+      const newPointIndex = prev.length + 1;
+      return [
+        ...prev,
+        {
+          id: `crosshair-${Date.now()}${Math.random().toString(36).substr(2, 5)}`,
+          x,
+          y,
+          testType: currentTestType,
+          pointIndex: newPointIndex
+        }
+      ];
+    });
   };
 
   const handleSendDataToServer = async () => {
     if (!capturedImageDataUrl) {
-      setErrorMessage("No image captured to send.");
+      setErrorMessage('No image captured to send.');
       return;
     }
     if (placedCrosshairs.length === 0) {
-      setErrorMessage("Please place at least one analysis point on the image.");
+      setErrorMessage('Please place at least one analysis point on the image.');
+      return;
+    }
+
+    // Ensure there's at least one WHITE point:
+    if (!placedCrosshairs.some((ch) => ch.testType === 'WHITE')) {
+      setErrorMessage('You must place at least one WHITE point for color calibration before analyzing.');
       return;
     }
 
@@ -115,15 +140,24 @@ export default function CameraApp() {
 
     const formData = new FormData();
     try {
-      const photoBlob = await fetch(capturedImageDataUrl).then(res => res.blob());
+      const photoBlob = await fetch(capturedImageDataUrl).then((res) => res.blob());
       formData.append('photo.jpeg', photoBlob, 'photo.jpeg');
 
-      const crosshairsData = placedCrosshairs.map(({ x, y, testType }) => ({ x, y, testType }));
-      formData.append('points.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'points.json');
+      const crosshairsData = placedCrosshairs.map(({ x, y, testType, pointIndex }) => ({
+        x,
+        y,
+        testType,
+        pointIndex
+      }));
+      formData.append(
+        'points.json',
+        new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }),
+        'points.json'
+      );
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, {
         method: 'POST',
-        body: formData,
+        body: formData
       });
       const responseData = await response.json();
 
@@ -134,7 +168,7 @@ export default function CameraApp() {
         setAnalysisResult('');
       }
     } catch (error) {
-      console.error("Client-side error during send or parsing response:", error);
+      console.error('Client-side error during send or parsing response:', error);
       setErrorMessage('Failed to send data or interpret server response. Check network or console.');
       setAnalysisResult('');
     }
@@ -147,7 +181,7 @@ export default function CameraApp() {
     setErrorMessage('');
   };
 
-  const handleClearLastPoint = () => setPlacedCrosshairs(prev => prev.slice(0, -1));
+  const handleClearLastPoint = () => setPlacedCrosshairs((prev) => prev.slice(0, -1));
   const handleClearAllPoints = () => setPlacedCrosshairs([]);
 
   if (showInfoOverlay) {
@@ -156,8 +190,8 @@ export default function CameraApp() {
         <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-lg w-full">
           <h2 className="text-3xl font-bold mb-4 text-gray-800">Test Analyzer</h2>
           <p className="text-gray-600 mb-8">
-            Allow camera access. Align the test strip using the on-screen guide.
-            After capturing, tap on the image to place points for each test area.
+            Allow camera access. Align the test strip using the on-screen guide. After capturing, tap on the image to
+            place points for each test area.
           </p>
           <button
             onClick={() => setShowInfoOverlay(false)}
@@ -170,16 +204,22 @@ export default function CameraApp() {
     );
   }
 
+  // For disabling the "Analyze" button if no WHITE point:
+  const hasWhitePoint = placedCrosshairs.some((ch) => ch.testType === 'WHITE');
+
   return (
     <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center justify-center">
       <div className="max-w-2xl w-full mx-auto bg-white rounded-xl shadow-2xl p-6">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 text-center">
-          Image Analysis
-        </h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 text-center">Image Analysis</h1>
 
         {errorMessage && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md mb-4 shadow" role="alert">
-            <p><span className="font-semibold">Error:</span> {errorMessage}</p>
+          <div
+            className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md mb-4 shadow"
+            role="alert"
+          >
+            <p>
+              <span className="font-semibold">Error:</span> {errorMessage}
+            </p>
           </div>
         )}
 
@@ -191,36 +231,53 @@ export default function CameraApp() {
                 src={CROSSHAIR_SVG_PATH}
                 className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50"
                 style={{
-                  maxHeight: '33%', // 1/4th of container height
-                  maxWidth: '33%',  // 1/4th of container width
-                  objectFit: 'contain', // Ensures it fits and maintains aspect ratio
+                  maxHeight: '33%', // 1/3 of container height
+                  maxWidth: '33%', // 1/3 of container width
+                  objectFit: 'contain'
                 }}
                 alt="Aiming Guide"
               />
             </>
           ) : (
             <div className="w-full h-full relative cursor-crosshair" onClick={handleImageAreaClick}>
-              <img
-                src={capturedImageDataUrl}
-                className="w-full h-full object-cover" // object-cover ensures the image fills the space, cropping if necessary
-                alt="Captured Test Strip"
-              />
-              {placedCrosshairs.map(ch => (
-                <img
+              <img src={capturedImageDataUrl} className="w-full h-full object-cover" alt="Captured Test Strip" />
+              {placedCrosshairs.map((ch) => (
+                <div
                   key={ch.id}
-                  src={CROSSHAIR_SVG_PATH}
-                  alt={`Point for ${ch.testType}`}
-                  className="absolute pointer-events-none opacity-80"
+                  className="absolute flex flex-col items-center"
                   style={{
-                    maxHeight: '33%', // Consistent sizing with the reference
-                    maxWidth: '33%',
-                    objectFit: 'contain',
+                    height: '33%',
+                    width: '33%',
                     left: `${ch.x * 100}%`,
                     top: `${ch.y * 100}%`,
-                    transform: 'translate(-50%, -50%)',
-                    filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))' // Slightly stronger shadow
+                    transform: 'translate(-50%, -50%)'
                   }}
-                />
+                >
+                  <img
+                    src={CROSSHAIR_SVG_PATH}
+                    alt={`Point for ${ch.testType}`}
+                    className="pointer-events-none opacity-80"
+                    style={{
+                      height: '100%',
+                      width: '100%',
+                      objectFit: 'contain',
+                      filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))'
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      color: TestTypeColorValues[ch.testType],
+                      fontWeight: 'bold',
+                      left: '50%',
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      pointerEvents: 'none'
+                    }}
+                  >
+                    {ch.pointIndex}
+                  </div>
+                </div>
               ))}
             </div>
           )}
@@ -242,8 +299,12 @@ export default function CameraApp() {
               <select
                 id="test-type-select"
                 value={currentTestType}
-                onChange={(e) => setCurrentTestType(e.target.value)}
-                className="w-full text-black p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                onChange={(e) => setCurrentTestType(e.target.value as TestType)}
+                className="w-full text-white p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                style={{
+                  // Pick the background color. Default to dark if not mapped.
+                  backgroundColor: TestTypeColorValues[currentTestType] || '#333'
+                }}
               >
                 <option value="ALB">ALB</option>
                 <option value="ALP">ALP</option>
@@ -278,7 +339,7 @@ export default function CameraApp() {
               </button>
               <button
                 onClick={handleSendDataToServer}
-                disabled={placedCrosshairs.length === 0}
+                disabled={placedCrosshairs.length === 0 || !hasWhitePoint}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Analyze {placedCrosshairs.length > 0 ? `(${placedCrosshairs.length} Points)` : ''}
@@ -288,13 +349,16 @@ export default function CameraApp() {
         )}
 
         {analysisResult && (
-          <div className={`mt-6 p-4 rounded-lg border shadow-sm ${analysisResult === 'Analyzing...' ? 'bg-yellow-50 border-yellow-300 text-yellow-800' : 'bg-green-50 border-green-300 text-green-800'}`}>
+          <div
+            className={`mt-6 p-4 rounded-lg border shadow-sm ${analysisResult === 'Analyzing...'
+                ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
+                : 'bg-green-50 border-green-300 text-green-800'
+              }`}
+          >
             <p className="text-xs font-medium uppercase tracking-wider mb-1">
               {analysisResult === 'Analyzing...' ? 'Status' : 'Analysis Result:'}
             </p>
-            <p className="text-base font-mono break-words">
-              {analysisResult}
-            </p>
+            <p className="text-base font-mono break-words">{analysisResult}</p>
           </div>
         )}
       </div>
