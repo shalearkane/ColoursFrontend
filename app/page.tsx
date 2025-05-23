@@ -20,13 +20,34 @@ interface PlacedCrosshair {
   pointIndex: number; // 1-based index
 }
 
-const CROSSHAIR_SVG_PATH = '/crosshair2.svg'; // Ensure this is in your /public folder
+const CROSSHAIR_SVG_PATH = '/crosshair2.svg';
 
-const TestTypeColorValues: Record<TestType, string> = {
-  WHITE: '#4B5563', // Tailwind gray-700
-  ALB: '#15803D', // Tailwind green-700
-  ALP: '#1D4ED8', // Tailwind blue-700
-  CREATININE: '#6D28D9' // Tailwind purple-700
+// M3 Inspired Colors
+const M3Colors = {
+  primary: 'bg-indigo-600', // A vibrant primary for actions
+  onPrimary: 'text-white',
+  secondaryContainer: 'bg-indigo-100',
+  onSecondaryContainer: 'text-indigo-800',
+  tertiary: 'bg-purple-600',
+  onTertiary: 'text-white',
+  error: 'bg-red-600',
+  onError: 'text-white',
+  errorContainer: 'bg-red-100',
+  onErrorContainer: 'text-red-700',
+  surface: 'bg-white', // Main app surface
+  surfaceContainer: 'bg-gray-50', // Slightly off-white for containers on surface
+  onSurface: 'text-gray-900',
+  onSurfaceVariant: 'text-gray-700',
+  outline: 'border-gray-300',
+  shadow: 'shadow-lg', // M3 often uses softer, more layered shadows
+  shadowMd: 'shadow-md'
+};
+
+const TestTypeColorValues: Record<TestType, { bg: string; text: string }> = {
+  WHITE: { bg: 'bg-gray-500', text: 'text-white' },
+  ALB: { bg: 'bg-green-600', text: 'text-white' },
+  ALP: { bg: 'bg-blue-600', text: 'text-white' },
+  CREATININE: { bg: 'bg-violet-600', text: 'text-white' }
 };
 
 export default function CameraApp() {
@@ -149,11 +170,7 @@ export default function CameraApp() {
         testType,
         pointIndex
       }));
-      formData.append(
-        'points.json',
-        new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }),
-        'points.json'
-      );
+      formData.append('points.json', new Blob([JSON.stringify(crosshairsData)], { type: 'application/json' }), 'points.json');
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/process`, {
         method: 'POST',
@@ -186,16 +203,16 @@ export default function CameraApp() {
 
   if (showInfoOverlay) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-gray-800 via-gray-900 to-black flex items-center justify-center z-50 p-6">
-        <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-lg w-full">
-          <h2 className="text-3xl font-bold mb-4 text-gray-800">Test Analyzer</h2>
-          <p className="text-gray-600 mb-8">
-            Allow camera access. Align the test strip using the on-screen guide. After capturing, tap on the image to
-            place points for each test area.
+      <div className={`fixed inset-0 ${M3Colors.surfaceContainer} flex items-center justify-center z-50 p-4 sm:p-6`}>
+        <div className={`${M3Colors.surface} p-6 sm:p-8 rounded-2xl ${M3Colors.shadow} max-w-md w-full text-center`}>
+          <h2 className={`text-2xl sm:text-3xl font-semibold mb-4 ${M3Colors.onSurface}`}>Test Analyzer</h2>
+          <p className={`${M3Colors.onSurfaceVariant} mb-8 text-sm sm:text-base`}>
+            Allow camera access. Align the test strip using the on-screen guide. After capturing, tap on the image to place points for each test
+            area.
           </p>
           <button
             onClick={() => setShowInfoOverlay(false)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-lg transition duration-150 ease-in-out transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+            className={`${M3Colors.primary} ${M3Colors.onPrimary} font-medium py-3 px-8 rounded-full text-base sm:text-lg transition-transform duration-150 ease-in-out hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300`}
           >
             Start Analysis
           </button>
@@ -204,26 +221,28 @@ export default function CameraApp() {
     );
   }
 
-  // For disabling the "Analyze" button if no WHITE point:
   const hasWhitePoint = placedCrosshairs.some((ch) => ch.testType === 'WHITE');
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 flex flex-col items-center justify-center">
-      <div className="max-w-2xl w-full mx-auto bg-white rounded-xl shadow-2xl p-6">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800 text-center">Image Analysis</h1>
-
+    <div className={`min-h-screen ${M3Colors.surfaceContainer} p-2 sm:p-4 flex flex-col items-center`}>
+      <div className={`max-w-2xl w-full mx-auto ${M3Colors.surface} rounded-3xl ${M3Colors.shadow} p-4 sm:p-6 mt-4 mb-4`}>
+        {/* App Bar / Header */}
+        <div className="mb-6 text-center">
+          <h1 className={`text-xl sm:text-2xl font-medium ${M3Colors.onSurface}`}>Image Analysis</h1>
+        </div>
         {errorMessage && (
           <div
-            className="bg-red-100 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded-md mb-4 shadow"
+            className={`${M3Colors.errorContainer} border-l-4 border-red-500 ${M3Colors.onErrorContainer} px-4 py-3 rounded-lg mb-4 ${M3Colors.shadowMd}`} // Softer shadow
             role="alert"
           >
-            <p>
-              <span className="font-semibold">Error:</span> {errorMessage}
-            </p>
+            <p className="font-medium">Error:</p>
+            <p className="text-sm">{errorMessage}</p>
           </div>
         )}
-
-        <div className="aspect-[4/3] bg-gray-300 rounded-lg overflow-hidden mb-6 relative border-2 border-gray-200 shadow-inner">
+        {/* Video/Image Display Area */}
+        <div
+          className={`aspect-[4/3] ${M3Colors.surfaceContainer} rounded-xl overflow-hidden mb-6 relative border ${M3Colors.outline} ${M3Colors.shadowMd}`}
+        >
           {!capturedImageDataUrl ? (
             <>
               <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
@@ -244,7 +263,7 @@ export default function CameraApp() {
               {placedCrosshairs.map((ch) => (
                 <div
                   key={ch.id}
-                  className="absolute flex flex-col items-center"
+                  className="absolute flex flex-col items-center justify-center"
                   style={{
                     height: '33%',
                     width: '33%',
@@ -256,22 +275,17 @@ export default function CameraApp() {
                   <img
                     src={CROSSHAIR_SVG_PATH}
                     alt={`Point for ${ch.testType}`}
-                    className="pointer-events-none opacity-80"
+                    className="pointer-events-none opacity-60"
                     style={{
                       height: '100%',
                       width: '100%',
                       objectFit: 'contain',
-                      filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))'
+                      filter: `drop-shadow(0 1px 2px rgba(0,0,0,0.3))`
                     }}
                   />
                   <div
+                    className={`absolute font-bold text-sm ${TestTypeColorValues[ch.testType].text} ${TestTypeColorValues[ch.testType].bg} rounded-full px-1`}
                     style={{
-                      position: 'absolute',
-                      color: TestTypeColorValues[ch.testType],
-                      fontWeight: 'bold',
-                      left: '50%',
-                      top: '50%',
-                      transform: 'translate(-50%, -50%)',
                       pointerEvents: 'none'
                     }}
                   >
@@ -283,28 +297,25 @@ export default function CameraApp() {
           )}
         </div>
 
+        {/* Controls Area */}
         {!capturedImageDataUrl ? (
           <button
             onClick={handleCaptureImage}
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 text-lg"
+            className={`w-full ${M3Colors.primary} ${M3Colors.onPrimary} font-semibold py-3.5 px-4 rounded-full ${M3Colors.shadowMd} transition-transform duration-150 ease-in-out hover:scale-[1.03] focus:outline-none focus:ring-4 focus:ring-indigo-300 text-lg`} // Rounded-full for FAB-like feel
           >
             Capture Image
           </button>
         ) : (
           <>
-            <div className="mb-4">
-              <label htmlFor="test-type-select" className="block text-sm font-medium text-gray-700 mb-1">
-                Select Test Type for Next Point:
+            <div className="mb-5">
+              <label htmlFor="test-type-select" className={`block text-sm font-medium ${M3Colors.onSurfaceVariant} mb-1.5`}>
+                Select Test Type:
               </label>
               <select
                 id="test-type-select"
                 value={currentTestType}
                 onChange={(e) => setCurrentTestType(e.target.value as TestType)}
-                className="w-full text-white p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                style={{
-                  // Pick the background color. Default to dark if not mapped.
-                  backgroundColor: TestTypeColorValues[currentTestType] || '#333'
-                }}
+                className={`w-full ${TestTypeColorValues[currentTestType].bg} ${TestTypeColorValues[currentTestType].text} p-3.5 border ${M3Colors.outline} rounded-lg ${M3Colors.shadowMd} focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base`}
               >
                 <option value="ALB">ALB</option>
                 <option value="ALP">ALP</option>
@@ -313,34 +324,35 @@ export default function CameraApp() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-3 mb-5">
               <button
                 onClick={handleClearLastPoint}
                 disabled={placedCrosshairs.length === 0}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-3 px-4 rounded-full ${M3Colors.shadowMd} transition disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300`}
               >
                 Clear Last ({placedCrosshairs.length})
               </button>
               <button
                 onClick={handleClearAllPoints}
                 disabled={placedCrosshairs.length === 0}
-                className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-3 px-4 rounded-full ${M3Colors.shadowMd} transition disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-300`}
               >
                 Clear All
               </button>
             </div>
 
+            {/* Main Action Buttons - M3 emphasizes prominent actions */}
             <div className="flex flex-col sm:flex-row gap-3">
-              <button
+              <button // Secondary action: Outlined or Tonal button style
                 onClick={handleRetakeImage}
-                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg shadow transition"
+                className={`flex-1 ${M3Colors.secondaryContainer} ${M3Colors.onSecondaryContainer} font-medium py-3 px-4 rounded-full ${M3Colors.shadowMd} transition hover:bg-indigo-200`}
               >
                 Retake Image
               </button>
-              <button
+              <button // Primary action: Filled button style
                 onClick={handleSendDataToServer}
                 disabled={placedCrosshairs.length === 0 || !hasWhitePoint}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg shadow disabled:opacity-60 disabled:cursor-not-allowed"
+                className={`flex-1 ${M3Colors.primary} ${M3Colors.onPrimary} font-semibold py-3 px-4 rounded-full ${M3Colors.shadowMd} transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400`}
               >
                 Analyze {placedCrosshairs.length > 0 ? `(${placedCrosshairs.length} Points)` : ''}
               </button>
@@ -350,15 +362,16 @@ export default function CameraApp() {
 
         {analysisResult && (
           <div
-            className={`mt-6 p-4 rounded-lg border shadow-sm ${analysisResult === 'Analyzing...'
-                ? 'bg-yellow-50 border-yellow-300 text-yellow-800'
-                : 'bg-green-50 border-green-300 text-green-800'
-              }`}
+            className={`mt-6 p-4 rounded-xl border ${M3Colors.shadowMd} ${
+              analysisResult === 'Analyzing...'
+                ? `${M3Colors.secondaryContainer} border-yellow-400 ${M3Colors.onSecondaryContainer}`
+                : `bg-green-100 border-green-400 text-green-800`
+            }`}
           >
             <p className="text-xs font-medium uppercase tracking-wider mb-1">
               {analysisResult === 'Analyzing...' ? 'Status' : 'Analysis Result:'}
             </p>
-            <p className="text-base font-mono break-words">{analysisResult}</p>
+            <p className="text-lg font-mono break-words">{analysisResult}</p>
           </div>
         )}
       </div>
