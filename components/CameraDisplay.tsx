@@ -2,10 +2,11 @@
 import { CROSSHAIR_SVG_PATH } from '@/constants/appConstants';
 import { M3Colors, TestTypeColorValues } from '@/constants/themeConstants';
 import { PlacedCrosshair } from '@/types';
+import Image from 'next/image';
 import React, { RefObject } from 'react';
 
 interface CameraDisplayProps {
-  videoRef: RefObject<HTMLVideoElement>;
+  videoRef: RefObject<HTMLVideoElement | null>;
   capturedImageDataUrl: string | null;
   placedCrosshairs: PlacedCrosshair[];
   onImageAreaClick: (event: React.MouseEvent<HTMLDivElement>) => void;
@@ -19,7 +20,7 @@ const CameraDisplay: React.FC<CameraDisplayProps> = ({ videoRef, capturedImageDa
       {!capturedImageDataUrl ? (
         <>
           <video ref={videoRef} playsInline muted className="w-full h-full object-cover" aria-label="Camera feed" />
-          <img
+          <Image
             src={CROSSHAIR_SVG_PATH}
             alt="Aiming Guide"
             className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-50"
@@ -37,11 +38,8 @@ const CameraDisplay: React.FC<CameraDisplayProps> = ({ videoRef, capturedImageDa
           role="button"
           tabIndex={0}
           aria-label="Captured image area, click to place points"
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') onImageAreaClick(e as any);
-          }} // Basic keyboard accessibility
         >
-          <img src={capturedImageDataUrl} className="w-full h-full object-cover" alt="Captured Test Strip" />
+          <Image src={capturedImageDataUrl} className="w-full h-full object-cover" alt="Captured Test Strip" />
           {placedCrosshairs.map((ch) => (
             <div
               key={ch.id}
@@ -56,7 +54,7 @@ const CameraDisplay: React.FC<CameraDisplayProps> = ({ videoRef, capturedImageDa
               }}
               aria-hidden="true" // Decorative element
             >
-              <img
+              <Image
                 src={CROSSHAIR_SVG_PATH}
                 alt="crosshair" // Decorative, alt text provided by parent context if needed
                 className="opacity-70"

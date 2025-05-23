@@ -3,13 +3,15 @@ import { videoConstraints } from '@/constants/appConstants';
 import { RefObject, useEffect } from 'react';
 
 interface UseCameraStreamProps {
-  videoRef: RefObject<HTMLVideoElement>;
+  videoRef: RefObject<HTMLVideoElement | null>;
   enabled: boolean; // Controls if the camera should be active
   onStreamError: (message: string) => void;
 }
 
 export function useCameraStream({ videoRef, enabled, onStreamError }: UseCameraStreamProps) {
   useEffect(() => {
+    if (!videoRef) return;
+
     let stream: MediaStream | null = null;
 
     const initCamera = async () => {
