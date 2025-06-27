@@ -8,6 +8,7 @@ import { M3Colors } from '@/constants/themeConstants';
 import { useCameraStream } from '@/hooks/useCameraStream';
 import { sendAnalysisData } from '@/services/analysisService';
 import { ConcentrationResponse, PlacedCrosshair, TestType } from '@/types';
+import { extractZoomedFrame } from '@/utils/zoomUtils';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 // Helper for error message display
@@ -30,6 +31,24 @@ const ErrorDisplay: React.FC<{ message: string }> = ({ message }) => (
   </div>
 );
 
+/**
+ * Main camera application page component
+ *
+ * @description
+ * This component manages the complete workflow for:
+ * 1. Displaying a zoomed camera feed (2.5x zoom)
+ * 2. Capturing zoomed images for analysis
+ * 3. Placing analysis points on captured images
+ * 4. Sending images with points to backend for concentration analysis
+ * 5. Displaying analysis results
+ *
+ * The component enforces that the same 2.5x zoom is applied consistently across:
+ * - Live camera preview
+ * - Captured image
+ * - Image sent to server
+ *
+ * @returns {JSX.Element} The camera application interface
+ */
 export default function CameraAppPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [currentTestType, setCurrentTestType] = useState<TestType>('ALB');
@@ -63,26 +82,16 @@ export default function CameraAppPage() {
     // Camera stream will be re-enabled by useCameraStream hook's `enabled` dependency
   }, []);
 
-  const handleCaptureImage = useCallback(() => {
+  const handleCaptureImage = useCallback(async () => {
     const video = videoRef.current;
     if (!video || video.readyState < video.HAVE_METADATA || video.videoWidth === 0 || video.videoHeight === 0) {
       setErrorMessage('Video stream not ready or has no dimensions. Please ensure the camera is active and accessible.');
       return;
     }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) {
-      setErrorMessage('Could not prepare image for capture (canvas context error).');
-      return;
-    }
-
-    ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
     try {
-      const dataURL = canvas.toDataURL('image/jpeg', 0.92); // 0.92 is a good balance for quality/size
+      // Use the shared zoom extraction utility to capture only the zoomed portion
+      const dataURL = (await extractZoomedFrame(video, 'dataURL', 0.92)) as string;
       setCapturedImageDataUrl(dataURL);
       setPlacedCrosshairs([]);
       setErrorMessage('');
