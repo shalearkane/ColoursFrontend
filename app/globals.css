@@ -1,5 +1,134 @@
 @import 'tailwindcss';
 
+/* M3 Expressive Responsive Touch Interface */
+html,
+body {
+  height: 100vh;
+  height: 100dvh; /* Dynamic viewport height */
+  overflow-x: hidden;
+  overflow-y: auto; /* Allow vertical scroll for responsive scaling */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: none;
+  width: 100%;
+  font-feature-settings:
+    'rlig' 1,
+    'calt' 1;
+  font-size: clamp(14px, 2.5vw, 18px); /* Responsive base font size */
+}
+
+/* M3 Expressive Touch Optimization */
+* {
+  /* Disable text selection for app-like feel */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+
+  /* Optimize touch targets */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Allow text selection for interactive elements */
+input,
+textarea,
+select,
+[contenteditable] {
+  -webkit-user-select: text;
+  user-select: text;
+  font-size: 16px; /* Prevent zoom on iOS */
+}
+
+/* M3 Expressive Button States */
+button,
+[role='button'] {
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition-property: transform, box-shadow, background-color;
+  will-change: transform;
+}
+
+/* M3 Expressive Focus States */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgb(59 130 246);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* iOS Safari specific fixes */
+@supports (-webkit-touch-callout: none) {
+  body {
+    height: -webkit-fill-available;
+  }
+
+  /* Fix iOS safe areas */
+  .ios-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .ios-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Android Chrome specific optimizations */
+@media screen and (max-width: 768px) {
+  /* Prevent viewport scaling on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+
+  /* Optimize scrolling performance */
+  * {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+}
+
+/* Mobile landscape mode optimizations */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  body {
+    font-size: clamp(12px, 1.8vw, 14px);
+  }
+
+  /* Reduce padding in landscape */
+  .landscape-compact {
+    padding: 0.5rem !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Smaller camera in landscape */
+  .landscape-camera {
+    max-width: 300px !important;
+    margin-bottom: 1rem !important;
+  }
+}
+
+/* M3 Expressive Animation Performance */
+@media (prefers-reduced-motion: no-preference) {
+  * {
+    scroll-behavior: smooth;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 .camera-container {
   position: relative;
   width: 100%;

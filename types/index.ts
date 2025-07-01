@@ -12,7 +12,7 @@ export interface ConcentrationResponse {
   pointIndex: number;
   test_type: TestType;
   concentration: number;
-  remarks: 'low' | 'normal' | 'high';
+  remarks: 'none' | 'low' | 'normal' | 'high';
 }
 
 // Props for ResultsModal component

@@ -1,40 +1,53 @@
 'use client';
-import { M3Colors } from '@/constants/themeConstants';
+import TouchButton from '@/components/TouchButton';
 import React from 'react';
 
 interface ActionButtonsProps {
   onRetakeImage: () => void;
   onSendDataToServer: () => void;
+  onEditPoints?: () => void;
   canAnalyze: boolean;
   isLoadingAnalysis: boolean;
   placedCrosshairsCount: number;
+  isPostAnalysis?: boolean;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({
-  onRetakeImage,
-  onSendDataToServer,
-  canAnalyze,
-  isLoadingAnalysis,
-  placedCrosshairsCount
-}) => {
-  return (
-    <div className="flex flex-col sm:flex-row gap-3">
-      <button
-        onClick={onRetakeImage}
-        disabled={isLoadingAnalysis}
-        className={`flex-1 ${M3Colors.secondaryContainer} ${M3Colors.onSecondaryContainer} font-medium py-3 px-4 rounded-full ${M3Colors.shadowMd} transition hover:bg-indigo-200 disabled:opacity-70 disabled:cursor-not-allowed`}
-      >
-        Retake Image
-      </button>
-      <button
-        onClick={onSendDataToServer}
-        disabled={!canAnalyze || isLoadingAnalysis}
-        className={`flex-1 ${M3Colors.primary} ${M3Colors.onPrimary} font-semibold py-3 px-4 rounded-full ${M3Colors.shadowMd} transition hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400`}
-      >
-        {isLoadingAnalysis ? 'Analyzing...' : `Analyze ${placedCrosshairsCount > 0 ? `(${placedCrosshairsCount} Points)` : ''}`}
-      </button>
-    </div>
-  );
-};
+const ActionButtons: React.FC<ActionButtonsProps> = React.memo(
+  ({ onRetakeImage, onSendDataToServer, onEditPoints, canAnalyze, isLoadingAnalysis, placedCrosshairsCount, isPostAnalysis = false }) => {
+    if (isPostAnalysis) {
+      // Post-analysis mode: Show Retake Image and Edit Points
+      return (
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+          <TouchButton onClick={onRetakeImage} disabled={isLoadingAnalysis} variant="secondary" size="large" className="flex-1">
+            Retake Image
+          </TouchButton>
+          <TouchButton
+            onClick={onEditPoints}
+            disabled={isLoadingAnalysis}
+            variant="tertiary"
+            size="large"
+            className="flex-1 !bg-orange-600 !text-white"
+          >
+            Edit Points
+          </TouchButton>
+        </div>
+      );
+    }
+
+    // Pre-analysis mode: Show Retake Image and Analyze
+    return (
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <TouchButton onClick={onRetakeImage} disabled={isLoadingAnalysis} variant="secondary" size="large" className="flex-1">
+          Retake Image
+        </TouchButton>
+        <TouchButton onClick={onSendDataToServer} disabled={!canAnalyze || isLoadingAnalysis} variant="primary" size="large" className="flex-1">
+          {isLoadingAnalysis ? 'Analyzing...' : `Analyze ${placedCrosshairsCount > 0 ? `(${placedCrosshairsCount} Points)` : ''}`}
+        </TouchButton>
+      </div>
+    );
+  }
+);
+
+ActionButtons.displayName = 'ActionButtons';
 
 export default ActionButtons;
