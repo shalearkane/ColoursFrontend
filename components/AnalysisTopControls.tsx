@@ -17,16 +17,16 @@ const AnalysisTopControls: React.FC<AnalysisTopControlsProps> = React.memo(
   ({ currentTestType, onTestTypeChange, placedCrosshairsCount, onClearLastPoint, onClearAllPoints, disabled }) => {
     return (
       <>
-        <div className="mb-3 sm:mb-4">
-          <label htmlFor="test-type-select" className={`block ${TypographyScale.titleSmall} ${M3Colors.onSurfaceVariant} mb-2 sm:mb-3`}>
-            Select Test Type for Next Point:
+        <div className="mb-3 sm:mb-4 flex items-center gap-3">
+          <label htmlFor="test-type-select" className={`${TypographyScale.bodyMedium} ${M3Colors.onSurfaceVariant} whitespace-nowrap`}>
+            Next:
           </label>
           <select
             id="test-type-select"
             value={currentTestType}
             onChange={(e) => onTestTypeChange(e.target.value as TestType)}
             disabled={disabled}
-            className={`w-full ${TestTypeColorValues[currentTestType].bg} ${TestTypeColorValues[currentTestType].text} border ${M3Colors.outline} rounded-xl sm:rounded-2xl ${M3Colors.shadowMd} focus:outline-none focus:ring-2 focus:ring-blue-500 ${TypographyScale.bodyMedium} sm:${TypographyScale.bodyLarge} disabled:opacity-70 disabled:cursor-not-allowed`}
+            className={`flex-1 ${TestTypeColorValues[currentTestType].bg} ${TestTypeColorValues[currentTestType].text} border ${M3Colors.outline} rounded-xl sm:rounded-2xl ${M3Colors.shadowMd} focus:outline-none focus:ring-2 focus:ring-blue-500 ${TypographyScale.bodyMedium} sm:${TypographyScale.bodyLarge} disabled:opacity-70 disabled:cursor-not-allowed`}
             style={{
               minHeight: TouchTargets.comfortable,
               padding: '12px 16px'

@@ -64,8 +64,11 @@ const getResultColors = (pointIndex: number, results?: ConcentrationResponse[] |
  */
 const getConcentrationDisplay = (pointIndex: number, results?: ConcentrationResponse[] | null): string => {
   const result = results?.find((r) => r.pointIndex === pointIndex);
-  if (!result || result.concentration === -1 || result.remarks === 'none') {
-    return result ? 'N/A' : '';
+  if (!result) {
+    return '';
+  }
+  if (result.concentration === -1 || result.remarks === 'none') {
+    return '-';
   }
   return Math.round(result.concentration).toString();
 };
@@ -90,11 +93,11 @@ const getHueRotation = (pointIndex: number, results?: ConcentrationResponse[] | 
 
 /**
  * Calculates crosshair position relative to the outer container
- * Accounts for container padding to ensure accurate placement
+ * Direct positioning without padding offset since container has no padding
  */
 const getCrosshairPosition = (x: number, y: number) => ({
-  left: `calc(1.5rem + ${x} * (100% - 3.0rem))`,
-  top: `calc(1rem + ${y} * (100% - 2rem))`
+  left: `${x * 100}%`,
+  top: `${y * 100}%`
 });
 
 const CameraDisplay: React.FC<CameraDisplayProps> = React.memo(
@@ -102,10 +105,16 @@ const CameraDisplay: React.FC<CameraDisplayProps> = React.memo(
     const hasResults = Boolean(analysisResults?.length);
 
     return (
-      <div className="relative px-0 py-2">
+      <div className="relative h-full w-full flex items-center justify-center p-0 m-0">
         <div
-          className={`w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto ${M3Colors.surfaceContainer} rounded-2xl sm:rounded-3xl overflow-hidden relative border ${M3Colors.outline} ${M3Colors.shadowMd} landscape-camera`}
-          style={{ touchAction: 'manipulation', aspectRatio: '4/3' }}
+          className={`${M3Colors.surfaceContainer} overflow-hidden relative rounded-2xl sm:rounded-3xl border ${M3Colors.outline} ${M3Colors.shadowMd} landscape-camera`}
+          style={{ 
+            touchAction: 'manipulation', 
+            aspectRatio: '4/3', 
+            width: 'min(90vw, 60vh)',
+            height: 'auto',
+            maxHeight: '100%'
+          }}
         >
           {!capturedImageDataUrl ? (
             <LiveCameraView videoRef={videoRef} />
@@ -114,10 +123,25 @@ const CameraDisplay: React.FC<CameraDisplayProps> = React.memo(
           )}
         </div>
 
-        {/* Crosshairs rendered outside container to prevent clipping */}
+        {/* Crosshairs rendered outside container, positioned relative to camera feed */}
         {capturedImageDataUrl &&
           placedCrosshairs.map((crosshair) => (
-            <CrosshairOverlay key={crosshair.id} crosshair={crosshair} analysisResults={analysisResults} hasResults={hasResults} />
+            <div
+              key={crosshair.id}
+              className="absolute flex flex-col items-center justify-center"
+              style={{
+                height: `${CROSSHAIR_SIZE * 0.75}%`,
+                width: `${CROSSHAIR_SIZE * 0.75}%`,
+                left: `calc(50% + (${crosshair.x} - 0.5) * min(90vw, 60vh))`,
+                top: `calc(50% + (${crosshair.y} - 0.5) * min(90vw, 60vh) * 3/4)`,
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+                zIndex: 50
+              }}
+              aria-hidden="true"
+            >
+              <CrosshairContent crosshair={crosshair} analysisResults={analysisResults} hasResults={hasResults} />
+            </div>
           ))}
       </div>
     );
@@ -186,30 +210,18 @@ const CapturedImageView: React.FC<{
 };
 
 /**
- * Individual crosshair overlay with labels
+ * Crosshair content without positioning wrapper
  */
-const CrosshairOverlay: React.FC<{
+const CrosshairContent: React.FC<{
   crosshair: PlacedCrosshair;
   analysisResults?: ConcentrationResponse[] | null;
   hasResults: boolean;
 }> = ({ crosshair, analysisResults, hasResults }) => {
   const resultColors = getResultColors(crosshair.pointIndex, analysisResults);
   const concentrationValue = getConcentrationDisplay(crosshair.pointIndex, analysisResults);
-  const position = getCrosshairPosition(crosshair.x, crosshair.y);
 
   return (
-    <div
-      className="absolute flex flex-col items-center justify-center"
-      style={{
-        height: `${CROSSHAIR_SIZE * 0.75}%`,
-        width: `${CROSSHAIR_SIZE * 0.75}%`,
-        ...position,
-        transform: 'translate(-50%, -50%)',
-        pointerEvents: 'none',
-        zIndex: 50
-      }}
-      aria-hidden="true"
-    >
+    <>
       {/* Crosshair image */}
       <Image
         height={100}
@@ -249,7 +261,7 @@ const CrosshairOverlay: React.FC<{
 
       {/* Concentration results - only shown after analysis */}
       {hasResults && concentrationValue && <ConcentrationLabel value={concentrationValue} colors={resultColors} />}
-    </div>
+    </>
   );
 };
 
@@ -281,7 +293,7 @@ const ConcentrationLabel: React.FC<{
     >
       {value}
     </span>
-    {value !== 'N/A' && (
+    {value !== 'N/A' && value !== '-' && (
       <span
         className="text-gray-600 font-medium mt-1 bg-white/80 rounded-full text-center whitespace-nowrap"
         style={{
@@ -299,7 +311,7 @@ const ConcentrationLabel: React.FC<{
 CameraDisplay.displayName = 'CameraDisplay';
 LiveCameraView.displayName = 'LiveCameraView';
 CapturedImageView.displayName = 'CapturedImageView';
-CrosshairOverlay.displayName = 'CrosshairOverlay';
+CrosshairContent.displayName = 'CrosshairContent';
 ConcentrationLabel.displayName = 'ConcentrationLabel';
 
 export default CameraDisplay;

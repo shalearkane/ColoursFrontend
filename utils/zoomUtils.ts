@@ -89,44 +89,14 @@ export async function extractZoomedFrame(
 /**
  * Applies consistent 2.5x zoom for biomedical analysis
  *
- * Tries hardware zoom first (better quality), falls back to CSS transform.
+ * Uses CSS transform exclusively for zoom - no media API zoom.
  * Consistent zoom is CRITICAL for:
  * - Accurate color measurement
  * - Matching capture/preview views
  * - Reliable concentration calculations
  */
-export async function applyVideoZoom(videoElement: HTMLVideoElement, stream: MediaStream): Promise<void> {
-  const videoTrack = stream.getVideoTracks()[0];
-  if (!videoTrack) return;
-
-  // HACK: TypeScript doesn't include zoom in MediaTrackCapabilities yet,
-  // but it's supported in modern browsers. Using type assertion to bypass type checking.
-  const capabilities = videoTrack.getCapabilities() as MediaTrackCapabilities & {
-    zoom?: { min: number; max: number };
-  };
-
-  try {
-    if (capabilities.zoom && capabilities.zoom.min && capabilities.zoom.max) {
-      // Use MediaStream API zoom if available
-      const zoomValue = Math.min(CAMERA_ZOOM_FACTOR, capabilities.zoom.max);
-      // HACK: TypeScript doesn't recognize 'zoom' as a valid constraint yet.
-      // This is a valid constraint in browsers that support camera zoom.
-      try {
-        await videoTrack.applyConstraints({
-          advanced: [{ zoom: zoomValue } as MediaTrackConstraints]
-        });
-        console.log(`Applied hardware zoom: ${zoomValue}x`);
-        return;
-      } catch (constraintError) {
-        console.warn('Failed to apply zoom constraints:', constraintError);
-        // Fall through to CSS zoom
-      }
-    }
-  } catch (error) {
-    console.warn('Error checking zoom capabilities, falling back to CSS:', error);
-  }
-
-  // Fallback to CSS transform for manual scaling
+export async function applyVideoZoom(videoElement: HTMLVideoElement): Promise<void> {
+  // Apply CSS transform for 2.5x zoom
   videoElement.style.transform = `scale(${CAMERA_ZOOM_FACTOR})`;
   videoElement.style.transformOrigin = 'center';
 }

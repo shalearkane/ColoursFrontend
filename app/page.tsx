@@ -170,78 +170,74 @@ export default function CameraAppPage() {
   }
 
   return (
-    <div className={`min-h-screen ${M3Colors.surfaceContainer} p-2 sm:p-4 lg:p-6 flex flex-col items-center`} style={{ minHeight: '100dvh' }}>
-      <main
-        className={`w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-2xl mx-auto ${M3Colors.surface} rounded-2xl sm:rounded-3xl ${M3Colors.shadow} p-3 sm:p-4 lg:p-6 flex flex-col gap-3 sm:gap-4 landscape-compact`}
-        style={{ maxHeight: 'calc(100vh - 1rem)', overflow: 'auto' }}
-      >
-        <header className="text-center flex-shrink-0">
-          <h1 className={`${TypographyScale.headlineSmall} lg:${TypographyScale.headlineMedium} ${M3Colors.onSurface}`}>Medical Analysis</h1>
-          <p className={`${TypographyScale.bodySmall} sm:${TypographyScale.bodyMedium} ${M3Colors.onSurfaceVariant} mt-1 hidden sm:block`}>
-            Biomedical Test Strip Analysis
-          </p>
-        </header>
+    <main
+      className={`${M3Colors.surfaceContainer} flex flex-col overflow-hidden`}
+      style={{ height: '100dvh' }}
+    >
+      <header className="flex-shrink-0 text-center px-4 py-3 bg-gradient-to-b from-black/10 to-transparent">
+        <h1 className={`${TypographyScale.headlineSmall} font-bold ${M3Colors.onSurface} drop-shadow-sm`}>Medical Analysis</h1>
+      </header>
 
-        <div className="w-full">
-          <CameraDisplay
-            videoRef={videoRef}
-            capturedImageDataUrl={capturedImageDataUrl}
-            placedCrosshairs={placedCrosshairs}
-            analysisResults={isPostAnalysis ? analysisResult : null}
-            onImageAreaClick={handleImageAreaClick}
-          />
-        </div>
+      <div className="overflow-hidden px-4 py-2" style={{ height: '65vh' }}>
+        <CameraDisplay
+          videoRef={videoRef}
+          capturedImageDataUrl={capturedImageDataUrl}
+          placedCrosshairs={placedCrosshairs}
+          analysisResults={isPostAnalysis ? analysisResult : null}
+          onImageAreaClick={handleImageAreaClick}
+        />
+      </div>
 
-        <div className="flex-shrink-0">
-          {!capturedImageDataUrl ? (
-            <TouchButton onClick={handleCaptureImage} disabled={isLoadingAnalysis} variant="primary" size="large" className="w-full">
-              Capture Image
-            </TouchButton>
-          ) : (
-            <div className="space-y-3 sm:space-y-4">
-              {!isPostAnalysis && (
-                <AnalysisTopControls
-                  currentTestType={currentTestType}
-                  onTestTypeChange={setCurrentTestType}
-                  placedCrosshairsCount={placedCrosshairs.length}
-                  onClearLastPoint={handleClearLastPoint}
-                  onClearAllPoints={handleClearAllPoints}
-                  disabled={isLoadingAnalysis}
-                />
-              )}
-              {isPostAnalysis && !showResultsModal && (
-                <div className={`p-3 rounded-2xl ${M3Colors.primaryContainer} ${M3Colors.onPrimaryContainer} ${M3Colors.shadowMd} text-center`}>
-                  <p className={`${TypographyScale.titleSmall} font-medium`}>Analysis Complete</p>
-                  <p className={`${TypographyScale.bodySmall} mt-1`}>
-                    Choose "Edit Points" to modify crosshairs or "Retake Image" to start over
-                  </p>
-                </div>
-              )}
-              <ActionButtons
-                onRetakeImage={resetToCaptureState}
-                onSendDataToServer={handleSendData}
-                onEditPoints={handleEditPoints}
-                canAnalyze={canAnalyze}
-                isLoadingAnalysis={isLoadingAnalysis}
+      <div className="flex-shrink-0 px-4 flex flex-col justify-end" style={{ height: '35vh', paddingBottom: 'max(4rem, env(safe-area-inset-bottom) + 2rem)' }}>
+        {!capturedImageDataUrl ? (
+          <TouchButton onClick={handleCaptureImage} disabled={isLoadingAnalysis} variant="primary" size="large" className="w-full">
+            Capture Image
+          </TouchButton>
+        ) : (
+          <div className="space-y-3 sm:space-y-4">
+            {!isPostAnalysis && (
+              <AnalysisTopControls
+                currentTestType={currentTestType}
+                onTestTypeChange={setCurrentTestType}
                 placedCrosshairsCount={placedCrosshairs.length}
-                isPostAnalysis={isPostAnalysis && !showResultsModal}
+                onClearLastPoint={handleClearLastPoint}
+                onClearAllPoints={handleClearAllPoints}
+                disabled={isLoadingAnalysis}
               />
-            </div>
-          )}
-        </div>
-
-        {isLoadingAnalysis && capturedImageDataUrl && (
-          <div
-            className={`p-4 rounded-2xl ${M3Colors.secondaryContainer} ${M3Colors.onSecondaryContainer} ${M3Colors.shadowMd} text-center`}
-            role="status"
-            aria-live="polite"
-          >
-            <p className={`${TypographyScale.titleMedium} animate-pulse`}>Analyzing, please wait...</p>
+            )}
+            {isPostAnalysis && !showResultsModal && (
+              <div className={`p-3 rounded-2xl ${M3Colors.primaryContainer} ${M3Colors.onPrimaryContainer} ${M3Colors.shadowMd} text-center`}>
+                <p className={`${TypographyScale.titleSmall} font-medium`}>Analysis Complete</p>
+                <p className={`${TypographyScale.bodySmall} mt-1`}>
+                  Choose "Edit Points" to modify crosshairs or "Retake Image" to start over
+                </p>
+              </div>
+            )}
+            <ActionButtons
+              onRetakeImage={resetToCaptureState}
+              onSendDataToServer={handleSendData}
+              onEditPoints={handleEditPoints}
+              canAnalyze={canAnalyze}
+              isLoadingAnalysis={isLoadingAnalysis}
+              placedCrosshairsCount={placedCrosshairs.length}
+              isPostAnalysis={isPostAnalysis && !showResultsModal}
+            />
           </div>
         )}
-      </main>
+      </div>
+
+      {isLoadingAnalysis && capturedImageDataUrl && (
+        <div
+          className={`absolute inset-x-4 bottom-20 p-4 rounded-2xl ${M3Colors.secondaryContainer} ${M3Colors.onSecondaryContainer} ${M3Colors.shadowMd} text-center`}
+          role="status"
+          aria-live="polite"
+        >
+          <p className={`${TypographyScale.titleMedium} animate-pulse`}>Analyzing, please wait...</p>
+        </div>
+      )}
+      
       {showResultsModal && analysisResult && <ResultsModal results={analysisResult} onClose={() => setShowResultsModal(false)} />}
       {toastMessage && <Toast message={toastMessage} type="error" onClose={() => setToastMessage('')} />}
-    </div>
+    </main>
   );
 }

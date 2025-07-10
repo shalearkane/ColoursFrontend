@@ -69,7 +69,7 @@ export function useCameraStream({ videoRef, enabled, onStreamError }: UseCameraS
           });
 
           // Apply zoom using the shared utility
-          await applyVideoZoom(videoElement, stream);
+          await applyVideoZoom(videoElement);
         }
       } catch (err) {
         console.error('Camera initialization error:', err);
