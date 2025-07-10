@@ -188,7 +188,7 @@ export default function CameraAppPage() {
         />
       </div>
 
-      <div className="flex-shrink-0 px-4 flex flex-col justify-end" style={{ height: '40vh', paddingBottom: 'max(2rem, env(safe-area-inset-bottom) + 1rem)' }}>
+      <div className="flex-shrink-0 px-4 flex flex-col justify-end" style={{ height: '40vh', paddingBottom: 'max(1rem, env(safe-area-inset-bottom) + 0.5rem)' }}>
         {!capturedImageDataUrl ? (
           <TouchButton onClick={handleCaptureImage} disabled={isLoadingAnalysis} variant="primary" size="large" className="w-full">
             Capture Image
