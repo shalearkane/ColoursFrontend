@@ -178,7 +178,7 @@ export default function CameraAppPage() {
         <h1 className={`${TypographyScale.headlineSmall} font-bold ${M3Colors.onSurface} drop-shadow-sm`}>Medical Analysis</h1>
       </header>
 
-      <div className="overflow-hidden px-4 py-2" style={{ height: '65vh' }}>
+      <div className="overflow-hidden px-4 py-2" style={{ height: '60vh' }}>
         <CameraDisplay
           videoRef={videoRef}
           capturedImageDataUrl={capturedImageDataUrl}
@@ -188,7 +188,7 @@ export default function CameraAppPage() {
         />
       </div>
 
-      <div className="flex-shrink-0 px-4 flex flex-col justify-end" style={{ height: '35vh', paddingBottom: 'max(4rem, env(safe-area-inset-bottom) + 2rem)' }}>
+      <div className="flex-shrink-0 px-4 flex flex-col justify-end" style={{ height: '40vh', paddingBottom: 'max(2rem, env(safe-area-inset-bottom) + 1rem)' }}>
         {!capturedImageDataUrl ? (
           <TouchButton onClick={handleCaptureImage} disabled={isLoadingAnalysis} variant="primary" size="large" className="w-full">
             Capture Image
