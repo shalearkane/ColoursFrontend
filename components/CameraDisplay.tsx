@@ -91,14 +91,6 @@ const getHueRotation = (pointIndex: number, results?: ConcentrationResponse[] | 
   return HUE_ROTATION_MAP[result?.remarks as keyof typeof HUE_ROTATION_MAP] || 0;
 };
 
-/**
- * Calculates crosshair position relative to the outer container
- * Direct positioning without padding offset since container has no padding
- */
-const getCrosshairPosition = (x: number, y: number) => ({
-  left: `${x * 100}%`,
-  top: `${y * 100}%`
-});
 
 const CameraDisplay: React.FC<CameraDisplayProps> = React.memo(
   ({ videoRef, capturedImageDataUrl, placedCrosshairs, analysisResults, onImageAreaClick }) => {

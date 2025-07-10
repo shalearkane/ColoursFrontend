@@ -209,7 +209,7 @@ export default function CameraAppPage() {
               <div className={`p-3 rounded-2xl ${M3Colors.primaryContainer} ${M3Colors.onPrimaryContainer} ${M3Colors.shadowMd} text-center`}>
                 <p className={`${TypographyScale.titleSmall} font-medium`}>Analysis Complete</p>
                 <p className={`${TypographyScale.bodySmall} mt-1`}>
-                  Choose "Edit Points" to modify crosshairs or "Retake Image" to start over
+                  Choose &quot;Edit Points&quot; to modify crosshairs or &quot;Retake Image&quot; to start over
                 </p>
               </div>
             )}
